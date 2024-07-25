@@ -2,10 +2,12 @@ import gymnasium as gym
 import numpy as np
 from QLearningAgent import Agent, saveQ, loadAgent
 from CustomEnv import ActionUncertaintyWrapper
+import pygame
 
+pygame.init()
 
 # Initialize the environment
-env = gym.make("Breakout-v4", obs_type="rgb")
+env = gym.make("Breakout-v4", obs_type="rgb", render_mode="human")
 # env = gym.make('ALE/Breakout-v5', render_mode="human")  # remove render_mode in training
 
 wrapped_env = ActionUncertaintyWrapper(env, prob=0.1)
@@ -42,3 +44,5 @@ n_test = 100  # Number of testing episodes
 agent = loadAgent(n_states, n_actions, discount=gamma, lr=alpha, epsilon=epsilon, env=wrapped_env)
 success_rate = agent.eval(n_test, agent.Q)
 print(f'Q-Learning Success Rate: {success_rate}')
+
+pygame.quit()
