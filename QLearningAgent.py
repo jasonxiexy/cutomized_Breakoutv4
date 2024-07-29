@@ -134,19 +134,21 @@ class QLearningAgent():
 
         self.env.close()
 
-        plt.figure('Testing Reward per Episode')
-        plt.plot([k + 1 for k in range(n_episodes)], reward_list, color='black', linewidth=0.5)
-        plt.ylabel('Episode Reward', fontsize=12)
-        plt.xlabel('Episode', fontsize=12)
-        plt.title(f'Total Reward by Q-Learning for {n_episodes} Episodes', fontsize=12)
-        plt.show()
-
-        plt.figure('Testing Average Reward Curve')
+        plt.figure('Testing Learning Curve')
         plt.plot([k + 1 for k in range(n_episodes)], avg_reward_array, color='black', linewidth=0.5)
         plt.ylabel('Average Reward', fontsize=12)
         plt.xlabel('Episode', fontsize=12)
-        plt.title(f'Average Reward by Q-Learning for {n_episodes} Episodes', fontsize=12)
-        plt.show()
+        plt.title(f'Average Reward by Q-Learning for {n_episodes} Episodes (Testing)', fontsize=12)
+        plt.savefig('Testing_QLearningAverageReward.png',  format='png', dpi=900)
+        # plt.show()
+
+        plt.figure('Testing Total Reward per Episode Curve')
+        plt.plot([k + 1 for k in range(n_episodes)], reward_list, color='black', linewidth=0.5)
+        plt.ylabel('Total Reward', fontsize=12)
+        plt.xlabel('Episode', fontsize=12)
+        plt.title(f'Total Reward by Q-Learning for {n_episodes} Episodes (Testing)', fontsize=12)
+        plt.savefig('Testing_QLearningTotalReward.png',  format='png', dpi=900)
+        # plt.show()
 
         return reward_list
 
