@@ -197,7 +197,7 @@ if __name__ == "__main__":
     wrapped_env = ActionUncertaintyWrapper(env, prob=0.1)
 
     # Set the number of episodes
-    n_episodes = 1000
+    n_episodes = 10
     n_test = 10
 
     # Choose the model to run and mode

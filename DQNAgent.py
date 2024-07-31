@@ -11,18 +11,26 @@ class ReplayBuffer:
         self.size = size
         self.device = device
         self.buffer = deque(maxlen=size)
+        self.priorities = deque(maxlen=size)
 
     def store(self, state, action, next_state, reward, done):
         self.buffer.append((state, action, next_state, reward, done))
+        self.priorities.append(max(self.priorities, default=1))
 
     def sample(self, batch_size):
-        indices = np.random.choice(len(self.buffer), batch_size, replace=False)
+        priorities = np.array(self.priorities, dtype=np.float32)
+        probabilities = priorities / priorities.sum()
+        indices = np.random.choice(len(self.buffer), batch_size, p=probabilities)
+
         states, actions, next_states, rewards, dones = zip(*[self.buffer[idx] for idx in indices])
-        return (torch.tensor(np.array(states), dtype=torch.float32, device=self.device),
-                torch.tensor(actions, dtype=torch.int64, device=self.device),
-                torch.tensor(np.array(next_states), dtype=torch.float32, device=self.device),
-                torch.tensor(rewards, dtype=torch.float32, device=self.device),
-                torch.tensor(dones, dtype=torch.float32, device=self.device))
+
+        states = torch.tensor(np.array(states), dtype=torch.float32).to(self.device)
+        actions = torch.tensor(actions, dtype=torch.int64).to(self.device)
+        next_states = torch.tensor(np.array(next_states), dtype=torch.float32).to(self.device)
+        rewards = torch.tensor(rewards, dtype=torch.float32).to(self.device)
+        dones = torch.tensor(dones, dtype=torch.float32).to(self.device)
+
+        return states, actions, next_states, rewards, dones
 
     def __len__(self):
         return len(self.buffer)
@@ -56,10 +64,23 @@ class DQNAgent:
         if len(self.replay_buffer) < self.hp.batch_size:
             return
         states, actions, next_states, rewards, dones = self.replay_buffer.sample(self.hp.batch_size)
-        state_action_values = self.policy_net(states).gather(1, actions.unsqueeze(1)).squeeze(1)
-        next_state_values = self.target_net(next_states).max(1)[0]
+
+        # Ensure actions tensor has the correct shape
+        actions = actions.unsqueeze(1)
+
+        # Compute Q values for the selected actions
+        state_action_values = self.policy_net(states).gather(1, actions).squeeze(1)
+
+        # Compute the next state values using the target network
+        next_state_values = self.target_net(next_states).max(1)[0].detach()
+
+        # Compute the expected state-action values
         expected_state_action_values = (next_state_values * self.hp.discount_factor) * (1 - dones) + rewards
+
+        # Compute the loss
         loss = F.mse_loss(state_action_values, expected_state_action_values)
+
+        # Optimize the model
         self.optimizer.zero_grad()
         loss.backward()
         for param in self.policy_net.parameters():
