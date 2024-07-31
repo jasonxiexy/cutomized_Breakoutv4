@@ -61,10 +61,12 @@ from DQNAgent import DQNAgent
 from Hyperparameters import Hyperparameters
 from CustomEnv import ActionUncertaintyWrapper
 import pygame
+from tqdm import trange
 
 pygame.init()
 
 def run_qlearning_train(hp, wrapped_env, n_episodes):
+    # K = trange(n_episodes)
     # Initialize Q-learning agent
     agent = QLearningAgent(n_states=210 * 160 * 3, n_actions=wrapped_env.action_space.n, discount=hp.discount_factor, lr=hp.learning_rate, epsilon=1.0, epsilon_decay=hp.epsilon_decay, min_epsilon=hp.min_epsilon, env=wrapped_env)
 
@@ -102,12 +104,17 @@ def run_qlearning_play(hp, wrapped_env, n_test):
     plt.show()
 
 def run_dqn_train(hp, wrapped_env, num_episodes):
+    K = trange(num_episodes)
+
+    R_avg = 0
     # Initialize DQN agent
     agent = DQNAgent(wrapped_env, hp)
+    print(agent.device)
 
-    rewards = []
+    total_reward_per_episode = np.zeros(num_episodes)
+    average_reward_array = np.zeros(num_episodes)
 
-    for episode in range(num_episodes):
+    for k in K:
         state = wrapped_env.reset()[0]
         state = np.transpose(state, (2, 0, 1))  # Transpose to match the input shape of the CNN
         done = False
@@ -122,23 +129,34 @@ def run_dqn_train(hp, wrapped_env, num_episodes):
             total_reward += reward
             agent.optimize_model()
 
-        rewards.append(total_reward)
-        agent.update_epsilon()
+            if done:
+                R_avg = R_avg + (total_reward - R_avg) / (k + 1)
+                average_reward_array[k] = R_avg
+                total_reward_per_episode[k] = total_reward
+                agent.update_epsilon()
 
-        if episode % hp.targetDQN_update_rate == 0:
+        if k+1 % hp.targetDQN_update_rate == 0:
             agent.update_target_net()
 
-        if episode % 100 == 0:
-            print(f"Episode {episode}, Reward: {total_reward}, Epsilon: {agent.epsilon:.2f}")
+        K.set_description(f"Episode {k+1}, Reward: {total_reward}, Epsilon: {agent.epsilon:.2f}")
+        K.refresh()
 
     # Save the trained model
     torch.save(agent.policy_net.state_dict(), "dqn_breakout.pth")
 
-    # Plotting learning curve
-    plt.plot(rewards)
-    plt.ylabel('Reward')
+    # Plotting learning curve of total reward per episode
+    plt.plot(average_reward_array)
+    plt.ylabel('Average Reward')
     plt.xlabel('Episode')
-    plt.title('Training Reward Curve (DQN)')
+    plt.title('Training Average Reward per Episode Curve (DQL)')
+    plt.savefig('Training_DQNReward.png', format='png', dpi=900)
+    plt.show()
+
+    # Plotting learning curve of total reward per episode
+    plt.plot(total_reward_per_episode)
+    plt.ylabel('Total Reward')
+    plt.xlabel('Episode')
+    plt.title('Training Total Reward per Episode Curve (DQL)')
     plt.savefig('Training_DQNReward.png', format='png', dpi=900)
     plt.show()
 
@@ -179,7 +197,7 @@ if __name__ == "__main__":
     wrapped_env = ActionUncertaintyWrapper(env, prob=0.1)
 
     # Set the number of episodes
-    n_episodes = 5
+    n_episodes = 1000
     n_test = 10
 
     # Choose the model to run and mode
