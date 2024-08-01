@@ -110,6 +110,8 @@ def run_dqn_train(hp, wrapped_env, num_episodes):
     # Initialize DQN agent
     agent = DQNAgent(wrapped_env, hp)
     print(agent.device)
+    if torch.cuda.is_available():
+        print(f"Using device: {torch.cuda.get_device_name(0)}")
 
     total_reward_per_episode = np.zeros(num_episodes)
     average_reward_array = np.zeros(num_episodes)
