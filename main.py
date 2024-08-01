@@ -149,7 +149,7 @@ def run_dqn_train(hp, wrapped_env, num_episodes):
     plt.ylabel('Average Reward')
     plt.xlabel('Episode')
     plt.title('Training Average Reward per Episode Curve (DQL)')
-    plt.savefig('Training_DQNReward.png', format='png', dpi=900)
+    plt.savefig('Training_DQN_Average_Reward.png', format='png', dpi=900)
     plt.show()
 
     # Plotting learning curve of total reward per episode
@@ -157,7 +157,7 @@ def run_dqn_train(hp, wrapped_env, num_episodes):
     plt.ylabel('Total Reward')
     plt.xlabel('Episode')
     plt.title('Training Total Reward per Episode Curve (DQL)')
-    plt.savefig('Training_DQNReward.png', format='png', dpi=900)
+    plt.savefig('Training_DQN_Total_Reward.png', format='png', dpi=900)
     plt.show()
 
 def run_dqn_play(hp, wrapped_env, n_test):
