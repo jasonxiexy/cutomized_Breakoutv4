@@ -7,6 +7,6 @@ class Hyperparameters:
         self.batch_size = 32
         self.targetDQN_update_rate = 10
         self.num_episodes = 50000
-        self.epsilon_decay = 0.995
+        self.epsilon_decay = 0.999
         self.buffer_size = 10000
         self.min_epsilon = 0.01
