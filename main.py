@@ -110,6 +110,8 @@ def run_dqn_train(hp, wrapped_env, num_episodes):
     # Initialize DQN agent
     agent = DQNAgent(wrapped_env, hp)
     print(agent.device)
+    if torch.cuda.is_available():
+        print(f"Using device: {torch.cuda.get_device_name(0)}")
 
     total_reward_per_episode = np.zeros(num_episodes)
     average_reward_array = np.zeros(num_episodes)
@@ -149,7 +151,7 @@ def run_dqn_train(hp, wrapped_env, num_episodes):
     plt.ylabel('Average Reward')
     plt.xlabel('Episode')
     plt.title('Training Average Reward per Episode Curve (DQL)')
-    plt.savefig('Training_DQNReward.png', format='png', dpi=900)
+    plt.savefig('Training_DQN_Average_Reward.png', format='png', dpi=900)
     plt.show()
 
     # Plotting learning curve of total reward per episode
@@ -157,7 +159,7 @@ def run_dqn_train(hp, wrapped_env, num_episodes):
     plt.ylabel('Total Reward')
     plt.xlabel('Episode')
     plt.title('Training Total Reward per Episode Curve (DQL)')
-    plt.savefig('Training_DQNReward.png', format='png', dpi=900)
+    plt.savefig('Training_DQN_Total_Reward.png', format='png', dpi=900)
     plt.show()
 
 def run_dqn_play(hp, wrapped_env, n_test):
@@ -197,7 +199,7 @@ if __name__ == "__main__":
     wrapped_env = ActionUncertaintyWrapper(env, prob=0.1)
 
     # Set the number of episodes
-    n_episodes = 10
+    n_episodes = 10000
     n_test = 10
 
     # Choose the model to run and mode
