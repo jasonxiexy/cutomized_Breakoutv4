@@ -4,91 +4,140 @@ import torch.optim as optim
 from collections import deque
 import numpy as np
 from DQN import DQN
+import random
+from collections import namedtuple
+
+# Create a named tuple to more semantically transform transitions and batches of transitions
+Transition = namedtuple('transition', ('state', 'action', 'reward', 'state_', 'done', 'raw_state'))
 
 
 class ReplayBuffer:
     def __init__(self, size, device):
-        self.size = size
+        self.buffer = []
+        self.max_size = size
+        self.pointer = 0
         self.device = device
-        self.buffer = deque(maxlen=size)
-        self.priorities = deque(maxlen=size)
 
-    def store(self, state, action, next_state, reward, done):
-        self.buffer.append((state, action, next_state, reward, done))
-        self.priorities.append(max(self.priorities, default=1))
+    def add_transition(self, *args):
+        if len(self.buffer) < self.max_size:
+            self.buffer.append(None)
 
-    def sample(self, batch_size):
-        priorities = np.array(self.priorities, dtype=np.float32)
-        probabilities = priorities / priorities.sum()
-        indices = np.random.choice(len(self.buffer), batch_size, p=probabilities)
+        self.buffer[self.pointer] = Transition(*args)
+        self.pointer = int((self.pointer + 1) % self.max_size)
 
-        states, actions, next_states, rewards, dones = zip(*[self.buffer[idx] for idx in indices])
+    # Samples a batch of transitions
+    def sample_batch(self, batch_size=64):
+        batch = random.sample(self.buffer, batch_size)
 
-        states = torch.tensor(np.array(states), dtype=torch.float32).to(self.device)
-        actions = torch.tensor(actions, dtype=torch.int64).to(self.device)
-        next_states = torch.tensor(np.array(next_states), dtype=torch.float32).to(self.device)
-        rewards = torch.tensor(rewards, dtype=torch.float32).to(self.device)
-        dones = torch.tensor(dones, dtype=torch.float32).to(self.device)
+        # Converts batch of transitions to transitions of batches
+        batch = Transition(*zip(*batch))
 
-        return states, actions, next_states, rewards, dones
+        return batch
 
     def __len__(self):
         return len(self.buffer)
 
 
 class DQNAgent:
-    def __init__(self, env, hyperparameters):
+    def __init__(self, env, state_space, action_space, hyperparameters):
         self.env = env
+        self.state_space = state_space
+        self.action_space = action_space
         self.hp = hyperparameters
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.policy_net = DQN(env.action_space.n).to(self.device)
-        self.target_net = DQN(env.action_space.n).to(self.device)
+
+        self.policy_net = DQN(self.state_space, self.action_space).to(self.device)
+        self.target_net = DQN(self.state_space, self.action_space).to(self.device)
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.target_net.eval()
+
         self.optimizer = optim.Adam(self.policy_net.parameters(), lr=self.hp.learning_rate)
+        self.loss = torch.nn.SmoothL1Loss()
+
         self.replay_buffer = ReplayBuffer(self.hp.buffer_size, self.device)
         self.steps_done = 0
-        self.epsilon = 1.0
+        self.batch_size = self.hp.batch_size
+        self.epsilon = self.hp.epsilon
         self.epsilon_decay = self.hp.epsilon_decay
         self.min_epsilon = self.hp.min_epsilon
+        self.replace_target_cnt = self.hp.replace_target_cnt # After how many training iterations the target network should update
+        self.learn_counter = 0
+        self.update_target_net()
 
+    # Returns the greedy action according to the policy net
+    def greedy_action(self, obs):
+        obs = torch.tensor(obs).float().to(self.device)
+        obs = obs.unsqueeze(0)
+        action = self.policy_net(obs).argmax().item()
+        return action
+
+    # epsilon greedy
     def select_action(self, state):
         if np.random.rand() < self.epsilon:
-            return self.env.action_space.sample()
+            action = random.choice([x for x in range(self.action_space)])
         else:
-            with torch.no_grad():
-                state = torch.tensor(state, dtype=torch.float32, device=self.device).unsqueeze(0)
-                return self.policy_net(state).max(1)[1].item()
+            action = self.greedy_action(state)
+        return action
 
-    def optimize_model(self):
+    def optimize_model(self, num_it):
         if len(self.replay_buffer) < self.hp.batch_size:
             return
-        states, actions, next_states, rewards, dones = self.replay_buffer.sample(self.hp.batch_size)
 
-        # Ensure actions tensor has the correct shape
-        actions = actions.unsqueeze(1)
+        for i in range(num_it):
+            # Sample batch
+            state, action, reward, state_, done = self.sample_batch()
 
-        # Compute Q values for the selected actions
-        state_action_values = self.policy_net(states).gather(1, actions).squeeze(1)
+            # Calculate the value of the action taken
+            q_eval = self.policy_net(state).gather(1, action)
 
-        # Compute the next state values using the target network
-        next_state_values = self.target_net(next_states).max(1)[0].detach()
+            # Calculate best next action value from the target net and detach from graph
+            q_next = self.target_net(state_).detach().max(1)[0].unsqueeze(1)
+            # Using q_next and reward, calculate q_target
+            # (1-done) ensures q_target is 0 if transition is in a terminating state
+            q_target = (1 - done) * (reward + self.hp.discount_factor * q_next) + (done * reward)
 
-        # Compute the expected state-action values
-        expected_state_action_values = (next_state_values * self.hp.discount_factor) * (1 - dones) + rewards
+            # Compute the loss
+            # loss = self.loss(q_target, q_eval).to(self.device)
+            loss = self.loss(q_eval, q_target).to(self.device)
 
-        # Compute the loss
-        loss = F.mse_loss(state_action_values, expected_state_action_values)
+            # Perform backward propagation and optimization step
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
 
-        # Optimize the model
-        self.optimizer.zero_grad()
-        loss.backward()
-        for param in self.policy_net.parameters():
-            param.grad.data.clamp_(-1, 1)
-        self.optimizer.step()
+            # Increment learn_counter (for dec_eps and replace_target_net)
+            self.learn_counter += 1
 
+            # Check replace target net
+            self.update_target_net()
+
+            # Save model & decrement epsilon
+        self.policy_net.save_model()
+        self.update_epsilon()
+
+    def sample_batch(self):
+        batch = self.replay_buffer.sample_batch(self.hp.batch_size)
+        state_shape = batch.state[0].shape
+
+        # Convert to tensors with correct dimensions
+        state = torch.tensor(batch.state).view(self.batch_size, -1, state_shape[1], state_shape[2]).float().to(self.device)
+        action = torch.tensor(batch.action).unsqueeze(1).to(self.device)
+        reward = torch.tensor(batch.reward).float().unsqueeze(1).to(self.device)
+        state_ = torch.tensor(batch.state_).view(self.batch_size, -1, state_shape[1], state_shape[2]).float().to(self.device)
+        done = torch.tensor(batch.done).float().unsqueeze(1).to(self.device)
+
+        return state, action, reward, state_, done
+
+    # Updates the target net to have same weights as policy net
     def update_target_net(self):
-        self.target_net.load_state_dict(self.policy_net.state_dict())
+        if self.learn_counter % self.replace_target_cnt == 0:
+            self.target_net.load_state_dict(self.policy_net.state_dict())
+            print('Target network replaced')
 
     def update_epsilon(self):
-        self.epsilon = max(self.min_epsilon, self.epsilon * self.epsilon_decay)
+        self.epsilon = (
+            max(self.min_epsilon, self.epsilon * self.epsilon_decay))
+
+    # Stores a transition into memory
+    def store_transition(self, *args):
+        self.replay_buffer.add_transition(*args)

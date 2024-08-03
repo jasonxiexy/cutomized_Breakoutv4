@@ -62,13 +62,19 @@ from Hyperparameters import Hyperparameters
 from CustomEnv import ActionUncertaintyWrapper
 import pygame
 from tqdm import trange
+from utils import Transforms
+import math
+
 
 pygame.init()
+
 
 def run_qlearning_train(hp, wrapped_env, n_episodes):
     # K = trange(n_episodes)
     # Initialize Q-learning agent
-    agent = QLearningAgent(n_states=210 * 160 * 3, n_actions=wrapped_env.action_space.n, discount=hp.discount_factor, lr=hp.learning_rate, epsilon=1.0, epsilon_decay=hp.epsilon_decay, min_epsilon=hp.min_epsilon, env=wrapped_env)
+    agent = QLearningAgent(n_states=210 * 160 * 3, n_actions=wrapped_env.action_space.n, discount=hp.discount_factor,
+                           lr=hp.learning_rate, epsilon=1.0, epsilon_decay=hp.epsilon_decay, min_epsilon=hp.min_epsilon,
+                           env=wrapped_env)
 
     # Train by Q-Learning
     Q, reward_array, reward_per_episode_array = agent.QLearning(n_episodes)
@@ -91,8 +97,10 @@ def run_qlearning_train(hp, wrapped_env, n_episodes):
     plt.savefig('Training_QLearningTotalReward.png', format='png', dpi=900)
     plt.show()
 
+
 def run_qlearning_play(hp, wrapped_env, n_test):
-    agent = loadAgent(210 * 160 * 3, wrapped_env.action_space.n, hp.discount_factor, hp.learning_rate, 1.0, hp.epsilon_decay, hp.min_epsilon, wrapped_env)
+    agent = loadAgent(210 * 160 * 3, wrapped_env.action_space.n, hp.discount_factor, hp.learning_rate, 1.0,
+                      hp.epsilon_decay, hp.min_epsilon, wrapped_env)
     reward_list = agent.eval(n_test, agent.Q)
 
     plt.figure('Testing Learning Curve (Q-Learning)')
@@ -103,12 +111,25 @@ def run_qlearning_play(hp, wrapped_env, n_test):
     plt.savefig('Testing_QLearningReward.png', format='png', dpi=900)
     plt.show()
 
+
 def run_dqn_train(hp, wrapped_env, num_episodes):
+    scores = []
+    max_score = 0
+
+    state_space = wrapped_env.reset()[0].shape
+    # print(state_space)
+    # state_space = (state_space[2], state_space[0], state_space[1])
+
+    state_raw = np.zeros(state_space, dtype=np.uint8)
+    processed_state = Transforms.to_gray(state_raw)
+    state_space = processed_state.shape
+    action_space = wrapped_env.action_space.n
+
     K = trange(num_episodes)
 
     R_avg = 0
     # Initialize DQN agent
-    agent = DQNAgent(wrapped_env, hp)
+    agent = DQNAgent(wrapped_env, state_space, action_space, hp)
     print(agent.device)
     if torch.cuda.is_available():
         print(f"Using device: {torch.cuda.get_device_name(0)}")
@@ -117,19 +138,23 @@ def run_dqn_train(hp, wrapped_env, num_episodes):
     average_reward_array = np.zeros(num_episodes)
 
     for k in K:
-        state = wrapped_env.reset()[0]
-        state = np.transpose(state, (2, 0, 1))  # Transpose to match the input shape of the CNN
+        obs = wrapped_env.reset()[0]
+        state = Transforms.to_gray(obs)
         done = False
         total_reward = 0
+        cnt = 0
 
         while not done:
             action = agent.select_action(state)
-            next_state, reward, done, _, _ = wrapped_env.step(action)
-            next_state = np.transpose(next_state, (2, 0, 1))
-            agent.replay_buffer.store(state, action, next_state, reward, done)
-            state = next_state
+            obs_, reward, done, truncated, info = wrapped_env.step(action)
+            # Preprocess next state and store transition
+            state_ = Transforms.to_gray(obs, obs_)
+            agent.store_transition(state, action, reward, state_, int(done), obs)
+
+            obs = obs_
+            state = state_
             total_reward += reward
-            agent.optimize_model()
+            cnt += 1
 
             if done:
                 R_avg = R_avg + (total_reward - R_avg) / (k + 1)
@@ -137,21 +162,27 @@ def run_dqn_train(hp, wrapped_env, num_episodes):
                 total_reward_per_episode[k] = total_reward
                 agent.update_epsilon()
 
-        if k+1 % hp.targetDQN_update_rate == 0:
-            agent.update_target_net()
+        if total_reward > max_score:
+            max_score = total_reward
 
-        K.set_description(f"Episode {k+1}, Reward: {total_reward}, Epsilon: {agent.epsilon:.2f}")
+        scores.append(total_reward)
+
+        # Train on as many transitions as there have been added in the episode
+        # print(f'Optimize x{math.ceil(cnt / agent.batch_size)}')
+        agent.optimize_model(math.ceil(cnt / agent.batch_size))
+
+        K.set_description(f"Episode {k + 1}, Reward: {total_reward}, Avg Reward (past 100): {np.mean(scores[-100:])}, Epsilon: {agent.epsilon:.2f}, Transitions added: {cnt}")
         K.refresh()
 
     # Save the trained model
-    torch.save(agent.policy_net.state_dict(), "dqn_breakout.pth")
+    # torch.save(agent.policy_net.state_dict(), 'models/dqn_breakout.pth')
 
     # Plotting learning curve of total reward per episode
     plt.plot(average_reward_array)
     plt.ylabel('Average Reward')
     plt.xlabel('Episode')
     plt.title('Training Average Reward per Episode Curve (DQL)')
-    plt.savefig('Training_DQN_Average_Reward.png', format='png', dpi=900)
+    plt.savefig('charts/Training_DQN_Average_Reward.png', format='png', dpi=900)
     plt.show()
 
     # Plotting learning curve of total reward per episode
@@ -159,12 +190,13 @@ def run_dqn_train(hp, wrapped_env, num_episodes):
     plt.ylabel('Total Reward')
     plt.xlabel('Episode')
     plt.title('Training Total Reward per Episode Curve (DQL)')
-    plt.savefig('Training_DQN_Total_Reward.png', format='png', dpi=900)
+    plt.savefig('charts/Training_DQN_Total_Reward.png', format='png', dpi=900)
     plt.show()
+
 
 def run_dqn_play(hp, wrapped_env, n_test):
     agent = DQNAgent(wrapped_env, hp)
-    agent.policy_net.load_state_dict(torch.load("dqn_breakout.pth"))
+    agent.policy_net.load_state_dict(torch.load("models/dqn_breakout.pth"))
     agent.policy_net.eval()
 
     rewards = []
@@ -192,6 +224,7 @@ def run_dqn_play(hp, wrapped_env, n_test):
     plt.savefig('Testing_DQNReward.png', format='png', dpi=900)
     plt.show()
 
+
 if __name__ == "__main__":
     # Initialize hyperparameters
     hp = Hyperparameters()
@@ -199,8 +232,8 @@ if __name__ == "__main__":
     wrapped_env = ActionUncertaintyWrapper(env, prob=0.1)
 
     # Set the number of episodes
-    n_episodes = 10000
-    n_test = 10
+    n_episodes = 1
+    n_test = 100
 
     # Choose the model to run and mode
     model_type = 'DQN'  # Change to 'Q-Learning' to run the Q-learning model/ 'DQN'
@@ -217,4 +250,5 @@ if __name__ == "__main__":
         else:
             run_dqn_play(hp, wrapped_env, n_test)
 
+    env.close()
 pygame.quit()
