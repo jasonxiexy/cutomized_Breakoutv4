@@ -119,11 +119,18 @@ class DQNAgent:
         batch = self.replay_buffer.sample_batch(self.hp.batch_size)
         state_shape = batch.state[0].shape
 
-        # Convert to tensors with correct dimensions
-        state = torch.tensor(batch.state).view(self.batch_size, -1, state_shape[1], state_shape[2]).float().to(self.device)
+        # Convert lists of numpy arrays to single numpy arrays
+        states_array = np.array(batch.state)
+        states_array_ = np.array(batch.state_)
+
+        # Convert numpy arrays to tensors with correct dimensions
+        state = torch.tensor(states_array).view(self.hp.batch_size, -1, state_shape[1], state_shape[2]).float().to(
+            self.device)
+        state_ = torch.tensor(states_array_).view(self.hp.batch_size, -1, state_shape[1], state_shape[2]).float().to(
+            self.device)
+
         action = torch.tensor(batch.action).unsqueeze(1).to(self.device)
         reward = torch.tensor(batch.reward).float().unsqueeze(1).to(self.device)
-        state_ = torch.tensor(batch.state_).view(self.batch_size, -1, state_shape[1], state_shape[2]).float().to(self.device)
         done = torch.tensor(batch.done).float().unsqueeze(1).to(self.device)
 
         return state, action, reward, state_, done
