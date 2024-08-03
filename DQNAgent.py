@@ -142,8 +142,8 @@ class DQNAgent:
             print('Target network replaced')
 
     def update_epsilon(self):
-        self.epsilon = (
-            max(self.min_epsilon, self.epsilon * self.epsilon_decay))
+        self.epsilon = self.epsilon - self.epsilon_decay if self.epsilon > self.min_epsilon \
+                        else self.min_epsilon
 
     # Stores a transition into memory
     def store_transition(self, *args):
