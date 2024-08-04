@@ -9,6 +9,6 @@ class Hyperparameters:
         self.num_episodes = 50000
         self.epsilon = 0.1
         self.epsilon_decay = 5e-6
-        self.buffer_size = 1e6
+        self.buffer_size = 50000
         self.min_epsilon = 0.001
         self.replace_target_cnt = 5000
