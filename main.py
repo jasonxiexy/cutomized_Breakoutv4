@@ -160,7 +160,7 @@ def run_dqn_train(hp, wrapped_env, num_episodes):
                 R_avg = R_avg + (total_reward - R_avg) / (k + 1)
                 average_reward_array[k] = R_avg
                 total_reward_per_episode[k] = total_reward
-                agent.update_epsilon()
+                # agent.update_epsilon()
 
         if total_reward > max_score:
             max_score = total_reward
@@ -195,49 +195,89 @@ def run_dqn_train(hp, wrapped_env, num_episodes):
 
 
 def run_dqn_play(hp, wrapped_env, n_test):
-    agent = DQNAgent(wrapped_env, hp)
+    state_space = wrapped_env.reset()[0].shape
+    state_raw = np.zeros(state_space, dtype=np.uint8)
+    processed_state = Transforms.to_gray(state_raw)
+    state_space = processed_state.shape
+    action_space = wrapped_env.action_space.n
+
+    agent = DQNAgent(wrapped_env, state_space, action_space, hp)
     agent.policy_net.load_state_dict(torch.load("./models/dqn_breakout.pth"))
+    # agent.policy_net.load_state_dict(torch.load("./models/breakout_modeltest.pth"))
     agent.policy_net.eval()
 
-    rewards = []
+    print(agent.device)
+    if torch.cuda.is_available():
+        print(f"Using device: {torch.cuda.get_device_name(0)}")
 
-    for episode in range(n_test):
-        state = wrapped_env.reset()[0]
-        state = np.transpose(state, (2, 0, 1))  # Transpose to match the input shape of the CNN
+    scores = []
+    K = trange(n_test)
+
+    R_avg = 0
+    total_reward_per_episode = np.zeros(n_test)
+    average_reward_array = np.zeros(n_test)
+
+    for k in K:
+        obs = wrapped_env.reset()[0]
+        state = Transforms.to_gray(obs)
         done = False
         total_reward = 0
+        cnt = 0
 
         while not done:
-            action = agent.select_action(state)
-            next_state, reward, done, _, _ = wrapped_env.step(action)
-            next_state = np.transpose(next_state, (2, 0, 1))
-            state = next_state
+            action = agent.greedy_action(state)
+            # action = agent.select_action(state)
+            obs_, reward, done, truncated, info = wrapped_env.step(action)
+            state_ = Transforms.to_gray(obs, obs_)
+            agent.store_transition(state, action, reward, state_, int(done), obs)
+
+            obs = obs_
+            state = state_
             total_reward += reward
+            cnt += 1
 
-        rewards.append(total_reward)
-        print(f"Test Episode {episode + 1}, Reward: {total_reward}")
+        if done:
+            R_avg = R_avg + (total_reward - R_avg) / (k + 1)
+            average_reward_array[k] = R_avg
+            total_reward_per_episode[k] = total_reward
 
-    plt.plot(rewards)
-    plt.ylabel('Reward')
+        scores.append(total_reward)
+        K.set_description(f"Episode {k + 1}, Reward: {total_reward}, Avg Reward (past 100): {np.mean(scores[-100:])}, Epsilon: {agent.epsilon:.2f}, Transitions added: {cnt}")
+        K.refresh()
+
+    # Plotting learning curve of total reward per episode
+    plt.plot(average_reward_array)
+    plt.ylabel('Average Reward')
     plt.xlabel('Episode')
-    plt.title('Testing Reward Curve (DQN)')
-    plt.savefig('Testing_DQNReward.png', format='png', dpi=900)
+    plt.title('Testing Average Reward per Episode Curve (DQL)')
+    plt.savefig('./charts/Training_DQN_Average_Reward.png', format='png', dpi=900)
+    plt.show()
+
+    # Plotting learning curve of total reward per episode
+    plt.plot(total_reward_per_episode)
+    plt.ylabel('Total Reward')
+    plt.xlabel('Episode')
+    plt.title('Testing Total Reward per Episode Curve (DQL)')
+    plt.savefig('./charts/Training_DQN_Total_Reward.png', format='png', dpi=900)
     plt.show()
 
 
 if __name__ == "__main__":
     # Initialize hyperparameters
     hp = Hyperparameters()
-    env = gym.make("Breakout-v4", obs_type="rgb", render_mode=None)
+    # env = gym.make("Breakout-v4", obs_type="rgb", render_mode=None)
+    env = gym.make("Breakout-v4", obs_type="rgb", render_mode='human')
     wrapped_env = ActionUncertaintyWrapper(env, prob=0.1)
 
     # Set the number of episodes
-    n_episodes = 75000
-    n_test = 100
+    n_episodes = 75
+    n_test = 10
 
     # Choose the model to run and mode
     model_type = 'DQN'  # Change to 'Q-Learning' to run the Q-learning model/ 'DQN'
+    # model_type = 'Q-Learning'
     train = True  # Change to False to run in play mode
+    # train = False
 
     if model_type == 'Q-Learning':
         if train:

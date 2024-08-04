@@ -68,7 +68,14 @@ class DQNAgent:
     def greedy_action(self, obs):
         obs = torch.tensor(obs).float().to(self.device)
         obs = obs.unsqueeze(0)
-        action = self.policy_net(obs).argmax().item()
+        # action = self.policy_net(obs).argmax().item()
+        q_values = self.policy_net(obs).squeeze()
+        max_value = q_values.max().item()
+        max_indices = torch.nonzero(q_values == max_value).squeeze().tolist()
+        if isinstance(max_indices, int):
+            action = max_indices
+        else:
+            action = random.choice(max_indices)
         return action
 
     # epsilon greedy
