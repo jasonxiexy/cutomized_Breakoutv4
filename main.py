@@ -65,10 +65,13 @@ from tqdm import trange
 
 pygame.init()
 
+
 def run_qlearning_train(hp, wrapped_env, n_episodes):
     # K = trange(n_episodes)
     # Initialize Q-learning agent
-    agent = QLearningAgent(n_states=210 * 160 * 3, n_actions=wrapped_env.action_space.n, discount=hp.discount_factor, lr=hp.learning_rate, epsilon=1.0, epsilon_decay=hp.epsilon_decay, min_epsilon=hp.min_epsilon, env=wrapped_env)
+    agent = QLearningAgent(n_states=210 * 160 * 3, n_actions=wrapped_env.action_space.n, discount=hp.discount_factor,
+                           lr=hp.learning_rate, epsilon=1.0, epsilon_decay=hp.epsilon_decay, min_epsilon=hp.min_epsilon,
+                           env=wrapped_env)
 
     # Train by Q-Learning
     Q, reward_array, reward_per_episode_array = agent.QLearning(n_episodes)
@@ -91,8 +94,10 @@ def run_qlearning_train(hp, wrapped_env, n_episodes):
     plt.savefig('Training_QLearningTotalReward.png', format='png', dpi=900)
     plt.show()
 
+
 def run_qlearning_play(hp, wrapped_env, n_test):
-    agent = loadAgent(210 * 160 * 3, wrapped_env.action_space.n, hp.discount_factor, hp.learning_rate, 1.0, hp.epsilon_decay, hp.min_epsilon, wrapped_env)
+    agent = loadAgent(210 * 160 * 3, wrapped_env.action_space.n, hp.discount_factor, hp.learning_rate, 1.0,
+                      hp.epsilon_decay, hp.min_epsilon, wrapped_env)
     reward_list = agent.eval(n_test, agent.Q)
 
     plt.figure('Testing Learning Curve (Q-Learning)')
@@ -102,6 +107,7 @@ def run_qlearning_play(hp, wrapped_env, n_test):
     plt.title(f'Average Reward by Q-Learning for {n_test} Episodes (Testing)', fontsize=12)
     plt.savefig('Testing_QLearningReward.png', format='png', dpi=900)
     plt.show()
+
 
 def run_dqn_train(hp, wrapped_env, num_episodes):
     K = trange(num_episodes)
@@ -137,10 +143,10 @@ def run_dqn_train(hp, wrapped_env, num_episodes):
                 total_reward_per_episode[k] = total_reward
                 agent.update_epsilon()
 
-        if k+1 % hp.targetDQN_update_rate == 0:
+        if k + 1 % hp.targetDQN_update_rate == 0:
             agent.update_target_net()
 
-        K.set_description(f"Episode {k+1}, Reward: {total_reward}, Epsilon: {agent.epsilon:.2f}")
+        K.set_description(f"Episode {k + 1}, Reward: {total_reward}, Epsilon: {agent.epsilon:.2f}")
         K.refresh()
 
     # Save the trained model
@@ -151,7 +157,7 @@ def run_dqn_train(hp, wrapped_env, num_episodes):
     plt.ylabel('Average Reward')
     plt.xlabel('Episode')
     plt.title('Training Average Reward per Episode Curve (DQL)')
-    plt.savefig('Training_DQN_Average_Reward.png', format='png', dpi=900)
+    plt.savefig('Training_DQN_Average_Rewardv1.png', format='png', dpi=900)
     plt.show()
 
     # Plotting learning curve of total reward per episode
@@ -159,17 +165,26 @@ def run_dqn_train(hp, wrapped_env, num_episodes):
     plt.ylabel('Total Reward')
     plt.xlabel('Episode')
     plt.title('Training Total Reward per Episode Curve (DQL)')
-    plt.savefig('Training_DQN_Total_Reward.png', format='png', dpi=900)
+    plt.savefig('Training_DQN_Total_Rewardv1.png', format='png', dpi=900)
     plt.show()
+
 
 def run_dqn_play(hp, wrapped_env, n_test):
     agent = DQNAgent(wrapped_env, hp)
     agent.policy_net.load_state_dict(torch.load("dqn_breakout.pth"))
     agent.policy_net.eval()
 
-    rewards = []
+    print(agent.device)
+    if torch.cuda.is_available():
+        print(f"Using device: {torch.cuda.get_device_name(0)}")
 
-    for episode in range(n_test):
+    R_avg = 0
+    total_reward_per_episode = np.zeros(n_test)
+    average_reward_array = np.zeros(n_test)
+
+    K = trange(n_test)
+
+    for k in K:
         state = wrapped_env.reset()[0]
         state = np.transpose(state, (2, 0, 1))  # Transpose to match the input shape of the CNN
         done = False
@@ -182,29 +197,46 @@ def run_dqn_play(hp, wrapped_env, n_test):
             state = next_state
             total_reward += reward
 
-        rewards.append(total_reward)
-        print(f"Test Episode {episode + 1}, Reward: {total_reward}")
+        if done:
+            R_avg = R_avg + (total_reward - R_avg) / (k + 1)
+            average_reward_array[k] = R_avg
+            total_reward_per_episode[k] = total_reward
 
-    plt.plot(rewards)
-    plt.ylabel('Reward')
+        K.set_description(f"Episode {k + 1}, Reward: {total_reward}, Epsilon: {agent.epsilon:.2f}")
+        K.refresh()
+
+    # Plotting learning curve of total reward per episode
+    plt.plot(average_reward_array)
+    plt.ylabel('Average Reward')
     plt.xlabel('Episode')
-    plt.title('Testing Reward Curve (DQN)')
-    plt.savefig('Testing_DQNReward.png', format='png', dpi=900)
+    plt.title('Testing Average Reward per Episode Curve (DQL)')
+    plt.savefig('Testing_DQN_Average_Rewardv1.png', format='png', dpi=900)
     plt.show()
+
+    # Plotting learning curve of total reward per episode
+    plt.plot(total_reward_per_episode)
+    plt.ylabel('Total Reward')
+    plt.xlabel('Episode')
+    plt.title('Testing Total Reward per Episode Curve (DQL)')
+    plt.savefig('Testing_DQN_Total_Rewardv1.png', format='png', dpi=900)
+    plt.show()
+
 
 if __name__ == "__main__":
     # Initialize hyperparameters
     hp = Hyperparameters()
     env = gym.make("Breakout-v4", obs_type="rgb", render_mode=None)
+    # env = gym.make("Breakout-v4", obs_type="rgb", render_mode='human')
     wrapped_env = ActionUncertaintyWrapper(env, prob=0.1)
 
     # Set the number of episodes
     n_episodes = 10000
-    n_test = 10
+    n_test = 100
 
     # Choose the model to run and mode
     model_type = 'DQN'  # Change to 'Q-Learning' to run the Q-learning model/ 'DQN'
-    train = True  # Change to False to run in play mode
+    # train = True  # Change to False to run in play mode
+    train = False
 
     if model_type == 'Q-Learning':
         if train:
