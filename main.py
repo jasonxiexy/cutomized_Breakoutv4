@@ -171,11 +171,11 @@ def run_dqn_train(hp, wrapped_env, num_episodes):
         # print(f'Optimize x{math.ceil(cnt / agent.batch_size)}')
         agent.optimize_model(math.ceil(cnt / agent.batch_size))
 
-        K.set_description(f"Episode {k + 1}, Reward: {total_reward}, Avg Reward (past 100): {np.mean(scores[-100:])}, Epsilon: {agent.epsilon:.2f}, Transitions added: {cnt}")
+        K.set_description(f"Episode {k + 1}, Reward: {total_reward}, Avg Reward (past 100): {np.mean(scores[-100:])}, Epsilon: {agent.epsilon:.4f}, Transitions added: {cnt}")
         K.refresh()
 
     # Save the trained model
-    # torch.save(agent.policy_net.state_dict(), 'models/dqn_breakout.pth')
+    # torch.save(agent.policy_net.state_dict(), 'models/dqn_breakoutv2.pth')
 
     # Plotting learning curve of total reward per episode
     plt.plot(average_reward_array)
@@ -202,8 +202,8 @@ def run_dqn_play(hp, wrapped_env, n_test):
     action_space = wrapped_env.action_space.n
 
     agent = DQNAgent(wrapped_env, state_space, action_space, hp)
-    agent.policy_net.load_state_dict(torch.load("./models/dqn_breakout.pth"))
-    # agent.policy_net.load_state_dict(torch.load("./models/breakout_modeltest.pth"))
+    # agent.policy_net.load_state_dict(torch.load("models/dqn_breakoutv2.pth"))
+    agent.policy_net.load_state_dict(torch.load("./models/dqn_breakoutv3.pth"))
     agent.policy_net.eval()
 
     print(agent.device)
@@ -250,7 +250,7 @@ def run_dqn_play(hp, wrapped_env, n_test):
     plt.ylabel('Average Reward')
     plt.xlabel('Episode')
     plt.title('Testing Average Reward per Episode Curve (DQL)')
-    plt.savefig('./charts/Training_DQN_Average_Reward.png', format='png', dpi=900)
+    plt.savefig('./charts/Testing_DQN_Average_Rewardv3.png', format='png', dpi=900)
     plt.show()
 
     # Plotting learning curve of total reward per episode
@@ -258,26 +258,26 @@ def run_dqn_play(hp, wrapped_env, n_test):
     plt.ylabel('Total Reward')
     plt.xlabel('Episode')
     plt.title('Testing Total Reward per Episode Curve (DQL)')
-    plt.savefig('./charts/Training_DQN_Total_Reward.png', format='png', dpi=900)
+    plt.savefig('./charts/Testing_DQN_Total_Rewardv3.png', format='png', dpi=900)
     plt.show()
 
 
 if __name__ == "__main__":
     # Initialize hyperparameters
     hp = Hyperparameters()
-    # env = gym.make("Breakout-v4", obs_type="rgb", render_mode=None)
-    env = gym.make("Breakout-v4", obs_type="rgb", render_mode='human')
+    env = gym.make("Breakout-v4", obs_type="rgb", render_mode=None)
+    # env = gym.make("Breakout-v4", obs_type="rgb", render_mode='human')
     wrapped_env = ActionUncertaintyWrapper(env, prob=0.1)
 
     # Set the number of episodes
-    n_episodes = 75
-    n_test = 10
+    n_episodes = 75000
+    n_test = 100
 
     # Choose the model to run and mode
     model_type = 'DQN'  # Change to 'Q-Learning' to run the Q-learning model/ 'DQN'
     # model_type = 'Q-Learning'
-    train = True  # Change to False to run in play mode
-    # train = False
+    # train = True  # Change to False to run in play mode
+    train = False
 
     if model_type == 'Q-Learning':
         if train:

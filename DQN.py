@@ -44,8 +44,8 @@ class DQN(nn.Module):
 
     # Save a model
     def save_model(self):
-        torch.save(self.state_dict(), './models/dqn_breakout.pth')
+        torch.save(self.state_dict(), 'models/dqn_breakoutv2.pth')
 
     # Loads a model
     def load_model(self):
-        self.load_state_dict(torch.load('./models/dqn_breakout.pth'))
+        self.load_state_dict(torch.load('models/dqn_breakoutv2.pth'))

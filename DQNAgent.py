@@ -146,7 +146,7 @@ class DQNAgent:
     def update_target_net(self):
         if self.learn_counter % self.replace_target_cnt == 0:
             self.target_net.load_state_dict(self.policy_net.state_dict())
-            print('Target network replaced')
+            # print('Target network replaced')
 
     def update_epsilon(self):
         self.epsilon = self.epsilon - self.epsilon_decay if self.epsilon > self.min_epsilon \
