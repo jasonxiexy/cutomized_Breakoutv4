@@ -44,7 +44,8 @@ class QLearningAgent():
         for k in K:
             total_reward = 0
             observation, _ = self.env.reset()
-            # print(observation.shape)
+            print(observation.shape)
+            print(observation)
             s = self.discretize_state(observation)
             # print(s)
             terminated = False

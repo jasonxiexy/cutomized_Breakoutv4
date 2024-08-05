@@ -225,8 +225,8 @@ def run_dqn_play(hp, wrapped_env, n_test):
         cnt = 0
 
         while not done:
-            action = agent.greedy_action(state)
-            # action = agent.select_action(state)
+            # action = agent.greedy_action(state)
+            action = agent.select_action(state)
             obs_, reward, done, truncated, info = wrapped_env.step(action)
             state_ = Transforms.to_gray(obs, obs_)
             agent.store_transition(state, action, reward, state_, int(done), obs)
@@ -250,7 +250,7 @@ def run_dqn_play(hp, wrapped_env, n_test):
     plt.ylabel('Average Reward')
     plt.xlabel('Episode')
     plt.title('Testing Average Reward per Episode Curve (DQL)')
-    plt.savefig('./charts/Testing_DQN_Average_Rewardv3.png', format='png', dpi=900)
+    plt.savefig('./charts/Testing_DQN_Average_Rewardv3.2.png', format='png', dpi=900)
     plt.show()
 
     # Plotting learning curve of total reward per episode
@@ -258,7 +258,7 @@ def run_dqn_play(hp, wrapped_env, n_test):
     plt.ylabel('Total Reward')
     plt.xlabel('Episode')
     plt.title('Testing Total Reward per Episode Curve (DQL)')
-    plt.savefig('./charts/Testing_DQN_Total_Rewardv3.png', format='png', dpi=900)
+    plt.savefig('./charts/Testing_DQN_Total_Rewardv3.2.png', format='png', dpi=900)
     plt.show()
 
 
@@ -267,7 +267,9 @@ if __name__ == "__main__":
     hp = Hyperparameters()
     env = gym.make("Breakout-v4", obs_type="rgb", render_mode=None)
     # env = gym.make("Breakout-v4", obs_type="rgb", render_mode='human')
-    wrapped_env = ActionUncertaintyWrapper(env, prob=0.1)
+    # wrapped_env = ActionUncertaintyWrapper(env, prob=0.1)
+    wrapped_env = ActionUncertaintyWrapper(env, prob=0.001)
+    # wrapped_env = ActionUncertaintyWrapper(env, prob=0)
 
     # Set the number of episodes
     n_episodes = 75000
