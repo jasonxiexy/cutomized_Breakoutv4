@@ -150,7 +150,7 @@ def run_dqn_train(hp, wrapped_env, num_episodes):
         K.refresh()
 
     # Save the trained model
-    torch.save(agent.policy_net.state_dict(), "dqn_breakout.pth")
+    torch.save(agent.policy_net.state_dict(), "model/dqn_breakout.pth")
 
     # Plotting learning curve of total reward per episode
     plt.plot(average_reward_array)
@@ -171,7 +171,7 @@ def run_dqn_train(hp, wrapped_env, num_episodes):
 
 def run_dqn_play(hp, wrapped_env, n_test):
     agent = DQNAgent(wrapped_env, hp)
-    agent.policy_net.load_state_dict(torch.load("dqn_breakout.pth"))
+    agent.policy_net.load_state_dict(torch.load("model/dqn_breakout.pth"))
     agent.policy_net.eval()
 
     print(agent.device)
@@ -210,7 +210,7 @@ def run_dqn_play(hp, wrapped_env, n_test):
     plt.ylabel('Average Reward')
     plt.xlabel('Episode')
     plt.title('Testing Average Reward per Episode Curve (DQL)')
-    plt.savefig('Testing_DQN_Average_Rewardv1.png', format='png', dpi=900)
+    plt.savefig('charts/Testing_DQN_Average_Rewardv1.3.png', format='png', dpi=900)
     plt.show()
 
     # Plotting learning curve of total reward per episode
@@ -218,7 +218,7 @@ def run_dqn_play(hp, wrapped_env, n_test):
     plt.ylabel('Total Reward')
     plt.xlabel('Episode')
     plt.title('Testing Total Reward per Episode Curve (DQL)')
-    plt.savefig('Testing_DQN_Total_Rewardv1.png', format='png', dpi=900)
+    plt.savefig('charts/Testing_DQN_Total_Rewardv1.3.png', format='png', dpi=900)
     plt.show()
 
 
@@ -227,7 +227,10 @@ if __name__ == "__main__":
     hp = Hyperparameters()
     env = gym.make("Breakout-v4", obs_type="rgb", render_mode=None)
     # env = gym.make("Breakout-v4", obs_type="rgb", render_mode='human')
-    wrapped_env = ActionUncertaintyWrapper(env, prob=0.1)
+    # wrapped_env = ActionUncertaintyWrapper(env, prob=0.1)
+    # wrapped_env = ActionUncertaintyWrapper(env, prob=0.001)
+    wrapped_env = ActionUncertaintyWrapper(env, prob=0)
+
 
     # Set the number of episodes
     n_episodes = 10000

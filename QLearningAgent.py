@@ -154,12 +154,12 @@ class QLearningAgent():
 
 
 def saveQ(agent: QLearningAgent):
-    with open('Qfunction.pkl', 'wb') as outp:
+    with open('model/Qfunction.pkl', 'wb') as outp:
         pickle.dump(agent.Q, outp, pickle.HIGHEST_PROTOCOL)
 
 
 def loadAgent(n_states, n_actions, discount, lr, epsilon, epsilon_decay, min_epsilon, env):
     agent = QLearningAgent(n_states, n_actions, discount, lr, epsilon, epsilon_decay, min_epsilon, env)
-    with open('Qfunction.pkl', 'rb') as inp:
+    with open('model/Qfunction.pkl', 'rb') as inp:
         agent.Q = pickle.load(inp)
     return agent
