@@ -21,9 +21,9 @@ Building upon `DQN_version1`, this branch includes refinements and optimizations
 The `finalversion` branch contains the final submission for our project. This branch includes comprehensive experiments and results with four distinct models:
 
 - **Q-learning-v1**: Our traditional Q-learning model trained with 50,000 episodes.
-- **DQN-v1**: The first version of our Deep Q-learning model, trained with 30,000 episodes and a 0.1 wrapper probability.
-- **DQN-v2**: An improved version of DQN-v1 with a lower wrapper probability of 0.001, trained with 30,000 episodes.
-- **DQN-v3**: A benchmark model not using action uncertainty during training, tested under different conditions to evaluate its robustness and performance.
+- **dqn_breakoutv1**: The first version of our Deep Q-learning model, trained with 30,000 episodes and a 0.1 wrapper probability.
+- **dqn_breakoutv2**: An improved version of DQN-v1 with a lower wrapper probability of 0.001, trained with 30,000 episodes.
+- **dqn_breakoutv3**: A benchmark model not using action uncertainty during training, tested under different conditions to evaluate its robustness and performance.
 
 ## **Results and Analysis**
 The `finalversion` branch contains detailed reports and analyses of our experiments. The documentation includes comparisons of the models' performance, the impact of different parameters, and the effectiveness of action uncertainty in training.
