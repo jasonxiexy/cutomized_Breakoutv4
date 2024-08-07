@@ -225,8 +225,8 @@ def run_dqn_play(hp, wrapped_env, n_test):
         cnt = 0
 
         while not done:
-            # action = agent.greedy_action(state)
-            action = agent.select_action(state)
+            action = agent.greedy_action(state)
+            # action = agent.select_action(state)
             obs_, reward, done, truncated, info = wrapped_env.step(action)
             state_ = Transforms.to_gray(obs, obs_)
             agent.store_transition(state, action, reward, state_, int(done), obs)
@@ -265,10 +265,10 @@ def run_dqn_play(hp, wrapped_env, n_test):
 if __name__ == "__main__":
     # Initialize hyperparameters
     hp = Hyperparameters()
-    env = gym.make("Breakout-v4", obs_type="rgb", render_mode=None)
-    # env = gym.make("Breakout-v4", obs_type="rgb", render_mode='human')
-    # wrapped_env = ActionUncertaintyWrapper(env, prob=0.1)
-    wrapped_env = ActionUncertaintyWrapper(env, prob=0.001)
+    # env = gym.make("Breakout-v4", obs_type="rgb", render_mode=None)
+    env = gym.make("Breakout-v4", obs_type="rgb", render_mode='human')
+    wrapped_env = ActionUncertaintyWrapper(env, prob=0.1)
+    # wrapped_env = ActionUncertaintyWrapper(env, prob=0.001)
     # wrapped_env = ActionUncertaintyWrapper(env, prob=0)
 
     # Set the number of episodes
