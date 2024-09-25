@@ -1,5 +1,7 @@
 # **Project Title: Breakout Game with Reinforcement Learning**
 
+![plot](./charts/gamescreen.png)
+
 Welcome to the Breakout Game Reinforcement Learning project! This repository contains the source code and documentation for our experiments with different reinforcement learning approaches to solve the classic Breakout game. The project explores traditional Q-learning and Deep Q-learning (DQN) methods with various parameters and setups.
 
 ## **Branches Overview**
